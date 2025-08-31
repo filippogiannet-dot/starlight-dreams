@@ -2,41 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* North Star Design System - Night Sky Theme
+All colors MUST be HSL for the calming night sky aesthetic.
 */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Night Sky Gradient Background */
+    --background: 237 84% 7%;
+    --foreground: 220 30% 95%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Card surfaces with glass effect */
+    --card: 237 50% 12%;
+    --card-foreground: 220 25% 92%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 237 50% 12%;
+    --popover-foreground: 220 25% 92%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Primary - Deep Purple/Indigo */
+    --primary: 255 45% 65%;
+    --primary-foreground: 240 20% 12%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Secondary - Soft Purple */
+    --secondary: 237 35% 20%;
+    --secondary-foreground: 220 25% 92%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    /* Muted tones */
+    --muted: 237 25% 15%;
+    --muted-foreground: 220 15% 65%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Accent - Bright Star */
+    --accent: 285 85% 70%;
+    --accent-foreground: 240 20% 12%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 237 25% 25%;
+    --input: 237 35% 18%;
+    --ring: 255 45% 65%;
 
-    --radius: 0.5rem;
+    --radius: 1rem;
+    
+    /* Custom Gradients */
+    --gradient-night: linear-gradient(135deg, hsl(237, 84%, 7%) 0%, hsl(255, 45%, 12%) 50%, hsl(285, 35%, 15%) 100%);
+    --gradient-aurora: linear-gradient(135deg, hsl(255, 45%, 65%) 0%, hsl(285, 85%, 70%) 100%);
+    --gradient-stars: radial-gradient(circle at 50% 50%, hsl(255, 45%, 65%) 0%, transparent 70%);
+    
+    /* Shadows with purple glow */
+    --shadow-glow: 0 0 20px hsl(255, 45%, 65%, 0.3);
+    --shadow-soft: 0 4px 20px hsl(237, 84%, 7%, 0.4);
 
     --sidebar-background: 0 0% 98%;
 
@@ -56,33 +71,34 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Same as light theme - app uses night sky by default */
+    --background: 237 84% 7%;
+    --foreground: 220 30% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 237 50% 12%;
+    --card-foreground: 220 25% 92%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 237 50% 12%;
+    --popover-foreground: 220 25% 92%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 255 45% 65%;
+    --primary-foreground: 240 20% 12%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 237 35% 20%;
+    --secondary-foreground: 220 25% 92%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 237 25% 15%;
+    --muted-foreground: 220 15% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 285 85% 70%;
+    --accent-foreground: 240 20% 12%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 237 25% 25%;
+    --input: 237 35% 18%;
+    --ring: 255 45% 65%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -100,6 +116,43 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground min-h-screen;
+    background: var(--gradient-night);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  
+  /* Starfield animation */
+  .starfield {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: -1;
+  }
+  
+  .star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: hsl(255, 45%, 85%);
+    border-radius: 50%;
+    animation: twinkle 4s infinite;
+  }
+  
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+  
+  /* Mobile-optimized scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Smooth transitions */
+  .smooth-transition {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
