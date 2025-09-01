@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Heart, Clock } from 'lucide-react';
+import { Heart, Clock, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -158,70 +158,94 @@ const Feed = () => {
 
   return (
     <div className="min-h-screen pb-20">
-      <div className="space-y-6 p-4">
+      <div className="space-y-4 p-4">
         {dreams.map((dream) => (
           <Card key={dream.id} className="overflow-hidden bg-card/80 backdrop-blur-sm border-border/50">
             {/* Dream Image */}
             {dream.ai_image_url && (
-              <div className="aspect-square relative overflow-hidden">
+              <div className="aspect-square sm:aspect-video relative overflow-hidden">
                 <img
                   src={dream.ai_image_url}
                   alt={dream.title}
                   className="w-full h-full object-cover"
                 />
-              </div>
-            )}
-            
-            {/* Content */}
-            <div className="p-4 space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={dream.profiles?.avatar_url} />
-                    <AvatarFallback>
-                      {dream.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-semibold text-sm">
-                      {dream.profiles?.username || 'Anonymous'}
-                    </p>
-                    <div className="flex items-center text-xs text-muted-foreground">
-                      <Clock size={12} className="mr-1" />
+                {/* Video Play Overlay for mobile TikTok-style */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+                <div className="absolute bottom-4 left-4 right-4 text-white">
+                  <h3 className="font-bold text-lg mb-1">{dream.title}</h3>
+                  <div className="flex items-center gap-2 text-sm opacity-90">
+                    <Avatar className="w-6 h-6">
+                      <AvatarImage src={dream.profiles?.avatar_url} />
+                      <AvatarFallback className="text-xs">
+                        {dream.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>@{dream.profiles?.username || 'Anonymous'}</span>
+                    <div className="flex items-center gap-1">
+                      <Clock size={12} />
                       {formatDistanceToNow(new Date(dream.created_at), { addSuffix: true })}
                     </div>
                   </div>
                 </div>
               </div>
+            )}
+            
+            {/* Content - Only show if no image for better mobile layout */}
+            {!dream.ai_image_url && (
+              <div className="p-4 space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Avatar className="w-10 h-10">
+                      <AvatarImage src={dream.profiles?.avatar_url} />
+                      <AvatarFallback>
+                        {dream.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-sm">
+                        {dream.profiles?.username || 'Anonymous'}
+                      </p>
+                      <div className="flex items-center text-xs text-muted-foreground">
+                        <Clock size={12} className="mr-1" />
+                        {formatDistanceToNow(new Date(dream.created_at), { addSuffix: true })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-              {/* Dream Content */}
-              <div className="space-y-2">
-                <h3 className="font-bold text-lg">{dream.title}</h3>
-                {dream.ai_analysis && (
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    {dream.ai_analysis}
-                  </p>
-                )}
+                {/* Dream Content */}
+                <div className="space-y-2">
+                  <h3 className="font-bold text-lg">{dream.title}</h3>
+                  {dream.ai_analysis && (
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                      {dream.ai_analysis}
+                    </p>
+                  )}
+                </div>
               </div>
+            )}
 
-              {/* Actions */}
-              <div className="flex items-center space-x-4 pt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => toggleLike(dream.id)}
-                  className={`flex items-center space-x-2 ${
-                    dream.is_liked ? 'text-red-500' : 'text-muted-foreground'
-                  }`}
-                >
-                  <Heart 
-                    size={18} 
-                    className={dream.is_liked ? 'fill-current' : ''} 
-                  />
-                  <span className="text-sm">{dream.likes.length}</span>
-                </Button>
-              </div>
+            {/* Actions - Always at bottom */}
+            <div className="flex items-center justify-between p-4 border-t border-border/30">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => toggleLike(dream.id)}
+                className={`flex items-center gap-2 ${
+                  dream.is_liked ? 'text-red-500' : 'text-muted-foreground'
+                }`}
+              >
+                <Heart 
+                  size={20} 
+                  className={dream.is_liked ? 'fill-current' : ''} 
+                />
+                <span className="text-sm font-medium">{dream.likes.length}</span>
+              </Button>
+              
+              <Button variant="ghost" size="sm" className="text-muted-foreground">
+                <Share2 size={20} />
+              </Button>
             </div>
           </Card>
         ))}

@@ -8,6 +8,8 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Auth from "./pages/Auth";
 import Feed from "./pages/Feed";
 import CreateDream from "./pages/CreateDream";
+import Explore from "./pages/Explore";
+import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
 import NotFound from "./pages/NotFound";
 import BottomNav from "./components/BottomNav";
@@ -39,6 +41,8 @@ const AppContent = () => {
           <>
             <Route path="/" element={<Feed />} />
             <Route path="/create" element={<CreateDream />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
           </>
         ) : (

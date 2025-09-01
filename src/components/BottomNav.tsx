@@ -1,13 +1,15 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Plus, User } from 'lucide-react';
+import { Home, Plus, Search, Bell, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const BottomNav = () => {
   const location = useLocation();
   
   const navItems = [
-    { icon: Home, label: 'Feed', path: '/' },
-    { icon: Plus, label: 'Dream', path: '/create' },
+    { icon: Home, label: 'Home', path: '/' },
+    { icon: Plus, label: 'Create', path: '/create' },
+    { icon: Search, label: 'Explore', path: '/explore' },
+    { icon: Bell, label: 'Alerts', path: '/notifications' },
     { icon: User, label: 'Profile', path: '/profile' },
   ];
 
@@ -22,7 +24,7 @@ const BottomNav = () => {
               key={path}
               to={path}
               className={cn(
-                'flex flex-col items-center justify-center space-y-1 px-3 py-2 rounded-xl smooth-transition min-w-[60px]',
+                'flex flex-col items-center justify-center space-y-1 px-2 py-2 rounded-xl smooth-transition min-w-[56px]',
                 isActive 
                   ? 'text-primary bg-primary/10' 
                   : 'text-muted-foreground hover:text-foreground'
@@ -35,7 +37,7 @@ const BottomNav = () => {
                   isActive && 'drop-shadow-glow'
                 )} 
               />
-              <span className="text-xs font-medium">{label}</span>
+              <span className="text-[10px] font-medium">{label}</span>
             </Link>
           );
         })}
