@@ -1,254 +1,279 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { Heart, Clock, Share2 } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Filter, Sparkles, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { toast } from 'sonner';
-import { formatDistanceToNow } from 'date-fns';
-
-interface Dream {
-  id: string;
-  title: string;
-  content: string;
-  ai_analysis: string;
-  ai_image_url: string;
-  created_at: string;
-  user_id: string;
-  profiles: {
-    username: string;
-    avatar_url: string;
-  } | null;
-  likes: { user_id: string }[];
-  is_liked?: boolean;
-}
+import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
+import { useFeed } from '@/modules/feed/hooks/useFeed';
+import { FeedCard } from '@/components/feed/FeedCard';
+import { LoadingCard } from '@/components/feed/LoadingCard';
+import { useUserTracking } from '@/modules/tracking/useUserTracking';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const Feed = () => {
   const { user } = useAuth();
-  const [dreams, setDreams] = useState<Dream[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { trackInteraction } = useUserTracking();
+  const { 
+    items, 
+    loading, 
+    hasMore, 
+    filters, 
+    loadMore, 
+    refreshFeed, 
+    updateFilters,
+    generatePersonalizedContent 
+  } = useFeed();
 
-  useEffect(() => {
-    fetchDreams();
-  }, [user]);
+  const [localFilters, setLocalFilters] = useState(filters);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  const fetchDreams = async () => {
-    try {
-      // First get dreams and likes
-      const { data: dreamsData, error: dreamsError } = await supabase
-        .from('dreams')
-        .select(`
-          id,
-          title,
-          content,
-          ai_analysis,
-          ai_image_url,
-          created_at,
-          user_id,
-          likes (
-            user_id
-          )
-        `)
-        .eq('is_public', true)
-        .order('created_at', { ascending: false })
-        .limit(20);
+  const categories = [
+    { id: 'meditation', name: 'Meditation', color: 'bg-blue-500' },
+    { id: 'breathing', name: 'Breathing', color: 'bg-green-500' },
+    { id: 'sleep', name: 'Sleep', color: 'bg-purple-500' },
+    { id: 'focus', name: 'Focus', color: 'bg-orange-500' },
+    { id: 'anxiety', name: 'Anxiety Relief', color: 'bg-pink-500' },
+    { id: 'stress', name: 'Stress Relief', color: 'bg-teal-500' }
+  ];
 
-      if (dreamsError) throw dreamsError;
-
-      // Get unique user IDs
-      const userIds = [...new Set(dreamsData?.map(dream => dream.user_id))];
-      
-      // Fetch profiles for these users
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url')
-        .in('id', userIds);
-
-      if (profilesError) throw profilesError;
-
-      // Create a profile lookup map
-      const profilesMap = new Map(profilesData?.map(profile => [profile.id, profile]) || []);
-
-      // Combine dreams with profiles
-      const dreamsWithProfiles = dreamsData?.map(dream => ({
-        ...dream,
-        profiles: profilesMap.get(dream.user_id) || null,
-        is_liked: dream.likes.some(like => like.user_id === user?.id)
-      })) || [];
-
-      setDreams(dreamsWithProfiles);
-    } catch (error) {
-      console.error('Error fetching dreams:', error);
-      toast.error('Failed to load dreams');
-    } finally {
-      setLoading(false);
-    }
+  const handleApplyFilters = () => {
+    updateFilters(localFilters);
+    trackInteraction('filter_applied', 'feed', { filters: localFilters });
   };
 
-  const toggleLike = async (dreamId: string) => {
+  const handleGenerateContent = async () => {
     if (!user) {
-      toast.error('Please sign in to like dreams');
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to generate personalized content",
+        variant: "destructive"
+      });
       return;
     }
 
+    setIsGenerating(true);
     try {
-      const dream = dreams.find(d => d.id === dreamId);
-      const isLiked = dream?.is_liked;
-
-      if (isLiked) {
-        await supabase
-          .from('likes')
-          .delete()
-          .eq('dream_id', dreamId)
-          .eq('user_id', user.id);
-      } else {
-        await supabase
-          .from('likes')
-          .insert({ dream_id: dreamId, user_id: user.id });
-      }
-
-      // Update local state
-      setDreams(prev => prev.map(d => 
-        d.id === dreamId 
-          ? { 
-              ...d, 
-              is_liked: !isLiked,
-              likes: isLiked 
-                ? d.likes.filter(l => l.user_id !== user.id)
-                : [...d.likes, { user_id: user.id }]
-            }
-          : d
-      ));
+      await generatePersonalizedContent("Generate a meditation session based on my current needs");
+      await refreshFeed();
+      toast({
+        title: "Content Generated",
+        description: "New personalized content has been added to your feed",
+      });
+      trackInteraction('content_generated', 'feed');
     } catch (error) {
-      console.error('Error toggling like:', error);
-      toast.error('Failed to update like');
+      toast({
+        title: "Generation Failed",
+        description: "Unable to generate content right now. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen pb-16">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-muted-foreground">Loading dreams...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (dreams.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen pb-16 px-4">
-        <div className="text-center space-y-4 max-w-md">
-          <h2 className="text-2xl font-bold">No dreams yet</h2>
-          <p className="text-muted-foreground">
-            Be the first to share your dreams with the world!
-          </p>
-          <Button 
-            onClick={() => window.location.href = '/create'}
-            className="bg-gradient-to-r from-primary to-accent"
-          >
-            Share Your First Dream
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const handleFeedAction = useCallback(async (action: string, itemId: string, metadata?: any) => {
+    await trackInteraction(action, itemId, metadata);
+    
+    switch (action) {
+      case 'start_session':
+        // TODO: Navigate to session player
+        break;
+      case 'like':
+        // TODO: Update like status
+        break;
+      case 'save':
+        // TODO: Save to favorites
+        break;
+    }
+  }, [trackInteraction]);
 
   return (
     <div className="min-h-screen pb-20">
-      <div className="space-y-4 p-4">
-        {dreams.map((dream) => (
-          <Card key={dream.id} className="overflow-hidden bg-card/80 backdrop-blur-sm border-border/50">
-            {/* Dream Image */}
-            {dream.ai_image_url && (
-              <div className="aspect-square sm:aspect-video relative overflow-hidden">
-                <img
-                  src={dream.ai_image_url}
-                  alt={dream.title}
-                  className="w-full h-full object-cover"
-                />
-                {/* Video Play Overlay for mobile TikTok-style */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <h3 className="font-bold text-lg mb-1">{dream.title}</h3>
-                  <div className="flex items-center gap-2 text-sm opacity-90">
-                    <Avatar className="w-6 h-6">
-                      <AvatarImage src={dream.profiles?.avatar_url} />
-                      <AvatarFallback className="text-xs">
-                        {dream.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>@{dream.profiles?.username || 'Anonymous'}</span>
-                    <div className="flex items-center gap-1">
-                      <Clock size={12} />
-                      {formatDistanceToNow(new Date(dream.created_at), { addSuffix: true })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Content - Only show if no image for better mobile layout */}
-            {!dream.ai_image_url && (
-              <div className="p-4 space-y-4">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={dream.profiles?.avatar_url} />
-                      <AvatarFallback>
-                        {dream.profiles?.username?.[0]?.toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold text-sm">
-                        {dream.profiles?.username || 'Anonymous'}
-                      </p>
-                      <div className="flex items-center text-xs text-muted-foreground">
-                        <Clock size={12} className="mr-1" />
-                        {formatDistanceToNow(new Date(dream.created_at), { addSuffix: true })}
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm border-b border-border/50 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-bold">Mindful Feed</h1>
+            <Badge variant="outline" className="text-xs">
+              {items.length} sessions
+            </Badge>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {/* AI Generate Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleGenerateContent}
+              disabled={isGenerating}
+              className="btn-mindful"
+            >
+              {isGenerating ? (
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+            </Button>
+
+            {/* Refresh */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refreshFeed}
+              disabled={loading}
+              className="btn-mindful"
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </Button>
+
+            {/* Filter Sheet */}
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="sm" className="btn-mindful">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-80">
+                <SheetHeader>
+                  <SheetTitle>Filter Content</SheetTitle>
+                </SheetHeader>
+                
+                <div className="space-y-6 mt-6">
+                  {/* Categories */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold">Categories</h3>
+                    {categories.map((category) => (
+                      <div key={category.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={category.id}
+                          checked={localFilters.category === category.id}
+                          onCheckedChange={(checked) => {
+                            setLocalFilters(prev => ({
+                              ...prev,
+                              category: checked ? category.id : undefined
+                            }));
+                          }}
+                        />
+                        <label htmlFor={category.id} className="text-sm font-medium">
+                          {category.name}
+                        </label>
                       </div>
-                    </div>
+                    ))}
                   </div>
-                </div>
 
-                {/* Dream Content */}
-                <div className="space-y-2">
-                  <h3 className="font-bold text-lg">{dream.title}</h3>
-                  {dream.ai_analysis && (
-                    <p className="text-muted-foreground text-sm leading-relaxed">
-                      {dream.ai_analysis}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
+                  {/* Duration */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold">Max Duration</h3>
+                      <Badge variant="outline">{localFilters.duration || 60} min</Badge>
+                    </div>
+                    <Slider
+                      value={[localFilters.duration || 60]}
+                      onValueChange={([value]) => setLocalFilters(prev => ({ ...prev, duration: value }))}
+                      max={60}
+                      min={5}
+                      step={5}
+                      className="w-full"
+                    />
+                  </div>
 
-            {/* Actions - Always at bottom */}
-            <div className="flex items-center justify-between p-4 border-t border-border/30">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => toggleLike(dream.id)}
-                className={`flex items-center gap-2 ${
-                  dream.is_liked ? 'text-red-500' : 'text-muted-foreground'
-                }`}
-              >
-                <Heart 
-                  size={20} 
-                  className={dream.is_liked ? 'fill-current' : ''} 
-                />
-                <span className="text-sm font-medium">{dream.likes.length}</span>
-              </Button>
-              
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
-                <Share2 size={20} />
-              </Button>
-            </div>
-          </Card>
+                  {/* Sort By */}
+                  <div className="space-y-3">
+                    <h3 className="font-semibold">Sort By</h3>
+                    {['recent', 'popular', 'recommended', 'duration'].map((sort) => (
+                      <div key={sort} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={sort}
+                          checked={localFilters.sortBy === sort}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setLocalFilters(prev => ({ ...prev, sortBy: sort as any }));
+                            }
+                          }}
+                        />
+                        <label htmlFor={sort} className="text-sm font-medium capitalize">
+                          {sort}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button onClick={handleApplyFilters} className="w-full btn-mindful">
+                    Apply Filters
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+      </div>
+
+      {/* Feed Content */}
+      <div className="space-y-4 p-4">
+        {loading && items.length === 0 && (
+          <div className="space-y-4">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <LoadingCard key={index} />
+            ))}
+          </div>
+        )}
+
+        {items.map((item) => (
+          <FeedCard
+            key={item.id}
+            item={item}
+            onStart={(item) => handleFeedAction('start_session', item.id, { type: item.type })}
+            onLike={(itemId) => handleFeedAction('like', itemId)}
+            onSave={(itemId) => handleFeedAction('save', itemId)}
+            className="animate-fade-in"
+          />
         ))}
+
+        {/* Load More */}
+        {hasMore && !loading && (
+          <div className="text-center pt-4">
+            <Button 
+              variant="outline" 
+              onClick={loadMore}
+              className="btn-mindful"
+            >
+              Load More Sessions
+            </Button>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {items.length === 0 && !loading && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-primary/20 to-accent/20 flex items-center justify-center mx-auto mb-4">
+              <Sparkles className="text-primary" size={24} />
+            </div>
+            <h3 className="text-lg font-semibold mb-2">No sessions found</h3>
+            <p className="text-muted-foreground mb-4">
+              Try adjusting your filters or generate new personalized content.
+            </p>
+            <Button 
+              onClick={handleGenerateContent}
+              disabled={isGenerating}
+              className="btn-mindful bg-gradient-to-r from-primary to-accent text-white"
+            >
+              {isGenerating ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Generating...</span>
+                </div>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Generate Content
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
